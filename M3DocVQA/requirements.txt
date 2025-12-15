@@ -1,0 +1,9 @@
+llama-index
+llama-index-llms-openai
+llama-index-embeddings-openai
+llama-index-core
+pymupdf
+google-genai>=1.45.0
+ujson
+scikit-learn
+tqdm
