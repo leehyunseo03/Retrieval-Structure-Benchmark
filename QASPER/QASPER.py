@@ -48,7 +48,7 @@ client = genai.Client(api_key=GOOGLE_API_KEY) if GOOGLE_API_KEY else None
 VISION_MODEL_ID = 'gemini-2.0-flash'
 
 # 평가 설정
-TOP_K_LIST = [1, 3, 5]  # 측정할 Top-K 지표
+TOP_K_LIST = [1, 3, 5, 10]  # 측정할 Top-K 지표
 LIMIT_PDFS = 30         # 테스트 속도를 위해 사용할 PDF 개수 제한 (0이면 전체, 추천: 20~50)
 
 # =========================================================

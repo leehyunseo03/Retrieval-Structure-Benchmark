@@ -6,3 +6,6 @@ M3DocVQA/batch_input.jsonl
 
 QASPER/qasper/*
 QASPER/qasper_pdfs/*
+
+FinanceBench/financebench/*
+FinanceBench/financebench_pdfs/*
