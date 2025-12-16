@@ -13,14 +13,31 @@
 | 10 | 0.9310 | 0.7084 |
 
 ### QASPER (Text Only)
-- 30 pdfs & 93 questions
+> **30 pdfs & 93 questions**
 
-| K | Recall | MRR |
-| --- | --- | --- |
-| 1 | 0.3034 | 0.3034 |
-| 3 | 0.4944 | 0.3858 |
-| 5 | 0.5618 | 0.4009 |
-| 10 | 0.6629 | 0.4149 |
+- Property Graph Index(LLM) + Normal Parser
+    | K | Recall | MRR |
+    | --- | --- | --- |
+    | 1 | 0.3034 | 0.3034 |
+    | 3 | 0.4944 | 0.3858 |
+    | 5 | 0.5618 | 0.4009 |
+    | 10 | 0.6629 | 0.4149 |
+
+- Vector+BM25(RRF) + Normal Parser + Reranker(cross-encoder/ms-marco-MiniLM-L-6-v2)    
+    | K | Recall | MRR |
+    | --- | --- | --- |
+    | 1 | 0.5238 | 0.5238 |
+    | 3 | 0.6071 | 0.5615 |
+    | 5 | 0.6667 | 0.5758 |
+    | 10 | 0.7143 | 0.5818 |
+    
+- Property Graph Index(Implicit) + Normal Parser + Reranker(cross-encoder/ms-marco-MiniLM-L-6-v2)
+    | K | Recall | MRR |
+    | --- | --- | --- |
+    | 1 | 0.5393 | 0.5393 |
+    | 3 | 0.6742 | 0.6030 |
+    | 5 | 0.7416 | 0.6187 |
+    | 10 | 0.7753 | 0.6234 |
 
 ### FinanceBench (Text Only)
 - 5 pdfs & 8 questions

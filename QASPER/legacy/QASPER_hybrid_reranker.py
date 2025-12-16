@@ -11,16 +11,13 @@ from llama_index.core import (
     Document,
     Settings,
     SimpleDirectoryReader,
-    PropertyGraphIndex, 
+    VectorStoreIndex,
     StorageContext
 )
-# [변경] 느린 LLM 추출기 대신, 빠른 'Implicit' 추출기 사용
-from llama_index.core.indices.property_graph import ImplicitPathExtractor
 from llama_index.core.node_parser import SentenceSplitter
 from llama_index.llms.openai import OpenAI
 from llama_index.embeddings.openai import OpenAIEmbedding
 
-# Retrieval & Post-processing
 from llama_index.retrievers.bm25 import BM25Retriever
 from llama_index.core.retrievers import QueryFusionRetriever
 from llama_index.core.retrievers.fusion_retriever import FUSION_MODES
@@ -32,6 +29,7 @@ from llama_index.postprocessor.sbert_rerank import SentenceTransformerRerank
 
 load_dotenv()
 
+# 경로 설정
 BASE_DIR = os.environ.get('QASPER_DIR')
 PDF_DIR = os.path.join(BASE_DIR, "qasper_pdfs")
 QASPER_JSON_PATH = os.path.join(BASE_DIR, "qasper", "qasper-dev-v0.3.json")
@@ -40,15 +38,15 @@ QASPER_JSON_PATH = os.path.join(BASE_DIR, "qasper", "qasper-dev-v0.3.json")
 Settings.llm = OpenAI(model="gpt-4o-mini", temperature=0)
 Settings.embed_model = OpenAIEmbedding(model="text-embedding-3-small")
 
-# 청크 설정
-parser = SentenceSplitter(chunk_size=1024, chunk_overlap=128)
-Settings.node_parser = parser
+# [최적화 1] 청크 전략 수정
+Settings.node_parser = SentenceSplitter(chunk_size=1024, chunk_overlap=128)
 
+# 평가 설정
 TOP_K_LIST = [1, 3, 5, 10]
-LIMIT_PDFS = 30 
+LIMIT_PDFS = 30  # 테스트용 개수 제한 (0이면 전체)
 
 # =========================================================
-# [2. 데이터 로더] 
+# [2. 데이터 로더] QASPER JSON 파싱
 # =========================================================
 
 @dataclass
@@ -93,7 +91,7 @@ def load_qasper_data(json_path: str) -> List[QAExample]:
     return qa_list
 
 # =========================================================
-# [3. 문서 로더] 메타데이터 주입
+# [3. 문서 로더] 메타데이터 주입 (Strategy 1)
 # =========================================================
 
 class OptimizedPDFLoader:
@@ -113,15 +111,18 @@ class OptimizedPDFLoader:
             filepath = os.path.join(self.pdf_dir, filename)
             
             try:
+                # 파일 로드
                 text_docs = SimpleDirectoryReader(input_files=[filepath]).load_data()
                 
                 for d in text_docs:
                     d.metadata["doc_id"] = doc_id
                     d.metadata["file_name"] = filename
                     
+                    # [최적화 1: 메타데이터 주입]
+                    # 텍스트 맨 앞에 논문 ID를 명시하여 검색 혼동 방지
                     header = f"[Paper ID: {doc_id}]\n"
-                    original_text = d.get_content()
-                    d.set_content(header + original_text)
+                    new_text = header + d.get_content()
+                    d.set_content(new_text)
 
                 all_docs.extend(text_docs)
             except Exception as e:
@@ -130,16 +131,17 @@ class OptimizedPDFLoader:
         return all_docs
 
 # =========================================================
-# [4. 메인 평가 로직] FAST PropertyGraph + Hybrid + Rerank
+# [4. 메인 평가 로직] Hybrid Search + Re-ranking
 # =========================================================
 
 def evaluate_system():
-    print("\n" + "="*70)
-    print("🚀 QASPER Fast Graph Evaluation")
-    print("   1. Metadata Injection")
-    print("   2. Fast Property Graph (Implicit Structure)")
-    print("   3. Hybrid Search + Re-ranking")
-    print("="*70)
+    
+    print("\n" + "="*60)
+    print("🚀 QASPER Advanced RAG Evaluation (Corrected)")
+    print("   1. Metadata Injection (Contextual Chunking)")
+    print("   2. Hybrid Search (Vector + BM25)")
+    print("   3. Re-ranking (Cross-Encoder)")
+    print("="*60)
 
     # 1. 데이터 준비
     full_qa_list = load_qasper_data(QASPER_JSON_PATH)
@@ -155,61 +157,48 @@ def evaluate_system():
     else:
         target_doc_ids = set(valid_ids)
 
-    print(f"📊 평가 규모: {len(target_doc_ids)}개 논문")
+    print(f"📊 평가 규모: {len(target_doc_ids)}개 논문 (Total QA: {len(full_qa_list)})")
 
-    # 2. 문서 로드 및 노드 생성
+    # 2. 문서 로드 및 인덱싱
     loader = OptimizedPDFLoader(PDF_DIR)
     docs = loader.load_specific_documents(target_doc_ids)
     
-    print("🔨 문서를 노드로 분할 중...")
-    nodes = parser.get_nodes_from_documents(docs)
-
-    # 3. Property Graph Index 생성 (Fast Mode)
-    print(f"\n🏗️  Property Graph Index 생성 중 (Nodes: {len(nodes)})...")
+    print(f"\n🏗️  Vector Index & BM25 Index 생성 중... (청크 수: {len(docs)})")
     
-    # [수정됨] LLM 대신 ImplicitPathExtractor 사용
-    # 문서의 순서(Next/Prev)와 소속(Parent) 관계만으로 그래프를 만듭니다. (매우 빠름)
-    index = PropertyGraphIndex(
-        nodes=nodes,
-        kg_extractors=[ImplicitPathExtractor()], 
-        embed_model=Settings.embed_model,
-        llm=Settings.llm,
-        show_progress=True
-    )
+    # [인덱싱] VectorStoreIndex 사용
+    index = VectorStoreIndex.from_documents(docs, show_progress=True)
     
-    # 4. Hybrid Retriever 구성
-    print("🔗 Hybrid Retriever 구성...")
+    # 3. [최적화 2] Hybrid Search 구성
+    print("🔗 Hybrid Retriever 구성 중 (Vector + BM25)...")
     
-    # (A) Graph Retriever
-    pg_retriever = index.as_retriever(
-        include_text=True, 
-        similarity_top_k=20
-    )
+    # (1) Vector Retriever
+    vector_retriever = index.as_retriever(similarity_top_k=20) 
     
-    # (B) BM25 Retriever
+    # (2) BM25 Retriever
     bm25_retriever = BM25Retriever.from_defaults(
-        nodes=nodes,
+        nodes=index.docstore.docs.values(),
         similarity_top_k=20,
         language="english"
     )
     
-    # (C) Fusion
+    # (3) Fusion
     hybrid_retriever = QueryFusionRetriever(
-        [pg_retriever, bm25_retriever],
+        [vector_retriever, bm25_retriever],
         num_queries=1,
         mode=FUSION_MODES.RECIPROCAL_RANK,
         use_async=True,
         similarity_top_k=20
     )
 
-    # 5. Re-ranking
-    print("🎯 Re-ranker 로딩 중...")
+    # 4. [최적화 3] Re-ranking 구성
+    print("🎯 Re-ranker (Cross-Encoder) 로딩 중...")
+    # 'cross-encoder/ms-marco-MiniLM-L-6-v2' 모델 사용 (자동 다운로드됨)
     reranker = SentenceTransformerRerank(
         model="cross-encoder/ms-marco-MiniLM-L-6-v2", 
         top_n=max(TOP_K_LIST) 
     )
 
-    # 6. 평가 진행
+    # 5. 평가 루프
     eval_qa_list = [qa for qa in full_qa_list if not qa.positive_doc_ids.isdisjoint(target_doc_ids)]
     print(f"\n🔎 평가 시작 (총 {len(eval_qa_list)}개 질문)")
     
@@ -218,21 +207,25 @@ def evaluate_system():
 
     for i, ex in enumerate(tqdm(eval_qa_list, desc="Evaluating")):
         try:
+            # Step A: Hybrid Retrieve -> Top 20 Candidates
             initial_nodes = hybrid_retriever.retrieve(ex.question)
             
+            # Step B: Re-ranking -> Top N Final
             reranked_nodes = reranker.postprocess_nodes(
                 initial_nodes, 
                 query_str=ex.question
             )
+            
             final_nodes = reranked_nodes
             
         except Exception as e:
-            # print(f"Error: {e}")
+            print(f"Error retrieving: {e}")
             final_nodes = []
         
         retrieved_doc_ids = [node.metadata.get("doc_id", "") for node in final_nodes]
         gt_set = ex.positive_doc_ids
 
+        # 디버깅 (첫 3개)
         if i < 3:
             tqdm.write(f"\n[Q] {ex.question}")
             tqdm.write(f"   Target: {list(gt_set)}")
@@ -240,27 +233,34 @@ def evaluate_system():
             hit = any(d in gt_set for d in retrieved_doc_ids[:5])
             tqdm.write(f"   -> {'✅ HIT' if hit else '❌ MISS'}")
 
+        # Metrics 계산
         for k in TOP_K_LIST:
             current_top_k = retrieved_doc_ids[:min(k, len(retrieved_doc_ids))]
+            
             if any(did in gt_set for did in current_top_k):
                 metrics[f"recall@{k}"] += 1.0
+            
             for rank, did in enumerate(current_top_k, start=1):
                 if did in gt_set:
                     metrics[f"mrr@{k}"] += 1.0 / rank
                     break
 
-    # 최종 결과
+    # 6. 최종 결과
     count = len(eval_qa_list)
     print("\n" + "="*50)
-    print(f"📈 최종 Fast Graph 평가 결과 (Samples: {count})")
+    print(f"📈 최종 Advanced 평가 결과 (Samples: {count})")
     print("="*50)
     
     if count > 0:
+        print(f"{'Metric':<12} | {'Score':<10}")
+        print("-" * 25)
         for k in TOP_K_LIST:
             recall = metrics[f'recall@{k}'] / count
             mrr = metrics[f'mrr@{k}'] / count
             print(f"Recall@{k:<2}   | {recall:.4f}")
             print(f"MRR@{k:<2}      | {mrr:.4f}")
+    else:
+        print("평가된 질문이 없습니다.")
 
 if __name__ == "__main__":
     evaluate_system()
