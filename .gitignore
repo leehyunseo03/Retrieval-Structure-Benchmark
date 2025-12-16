@@ -2,5 +2,7 @@
 
 M3DocVQA/multimodalqa/*
 M3DocVQA/pdfs_dev/*
-
 M3DocVQA/batch_input.jsonl
+
+QASPER/qasper/*
+QASPER/qasper_pdfs/*

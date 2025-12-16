@@ -37,7 +37,7 @@ OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY')
 
 # 2. 데이터 경로 설정
 # M3DocVQA 데이터셋이 있는 폴더 경로
-BASE_DIR =  os.environ.get('BASE_DIR') 
+BASE_DIR =  os.environ.get('M3DocVQA_DIR')
 PDF_DIR = os.path.join(BASE_DIR, "pdfs_dev") # PDF 파일들이 들어있는 폴더
 DEV_QA_PATH = os.path.join(BASE_DIR, "multimodalqa", "MMQA_dev.jsonl") # 질문지 파일
 
