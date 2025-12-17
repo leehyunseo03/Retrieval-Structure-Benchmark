@@ -1,4 +1,8 @@
 .env
+__pycache__/*
+FinanceBench/__pycache__/*
+M3DocVQA/__pycache__/*
+QASPER/__pycache__/*
 
 M3DocVQA/multimodalqa/*
 M3DocVQA/pdfs_dev/*
@@ -9,3 +13,5 @@ QASPER/qasper_pdfs/*
 
 FinanceBench/financebench/*
 FinanceBench/financebench_pdfs/*
+
+saved_indices/*
