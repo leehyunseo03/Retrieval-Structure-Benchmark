@@ -4,6 +4,7 @@ llama-index-embeddings-openai
 llama-index-core
 llama-index-retrievers-bm25 
 llama-index-postprocessor-sbert-rerank
+llama-index-embeddings-dashscope
 
 pymupdf
 google-genai>=1.45.0
