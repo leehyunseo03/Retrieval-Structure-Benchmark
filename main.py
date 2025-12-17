@@ -9,6 +9,9 @@ from llama_index.core.retrievers.fusion_retriever import FUSION_MODES
 from llama_index.retrievers.bm25 import BM25Retriever
 from llama_index.postprocessor.sbert_rerank import SentenceTransformerRerank
 
+from llama_index.core.indices.query.query_transform import HyDEQueryTransform
+from llama_index.core.query_engine import TransformQueryEngine
+
 # 모듈 동적 임포트를 위해 각 파일을 임포트
 import FinanceBench.FinanceBench as FinanceBench
 import M3DocVQA.M3DocVQA as M3DocVQA
@@ -44,7 +47,11 @@ def evaluate(dataset_name: str):
     storage_context = StorageContext.from_defaults(persist_dir=persist_dir)
     index = load_index_from_storage(storage_context, embed_model=Settings.embed_model)
     
-    # 2. Hybrid Search 구성 (Vector + BM25)
+    # HyDE (Query Expansion)
+    print("🧠 Setting up HyDE Query Expansion...")
+    hyde = HyDEQueryTransform(include_original=True, llm=Settings.llm)
+
+    # Hybrid Search 구성 (Vector + BM25)
     print("⚙️  Configuring Hybrid Retriever (Vector + BM25)...")
     
     # (1) Vector Retriever (Graph)
@@ -73,8 +80,10 @@ def evaluate(dataset_name: str):
 
     # 3. Reranker 설정
     print("🎯 Loading Re-ranker Model...")
+    #reranker_model = "cross-encoder/ms-marco-MiniLM-L-6-v2"
+    reranker_model = "BAAI/bge-reranker-base"
     reranker = SentenceTransformerRerank(
-        model="cross-encoder/ms-marco-MiniLM-L-6-v2",
+        model=reranker_model,
         top_n=max(TOP_K_LIST)
     )
 
@@ -102,8 +111,10 @@ def evaluate(dataset_name: str):
 
     for i, ex in enumerate(tqdm(filtered_qa_list, desc="Retrieving & Reranking")):
         try:
+            query_bundle = hyde(ex.question)
+
             # Hybrid Search
-            initial_nodes = hybrid_retriever.retrieve(ex.question)
+            initial_nodes = hybrid_retriever.retrieve(query_bundle)
             
             # Re-ranking
             final_nodes = reranker.postprocess_nodes(

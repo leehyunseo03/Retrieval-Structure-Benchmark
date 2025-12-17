@@ -2,6 +2,13 @@
 
 **Genifier : Custom Retrieval Structure for Genipai**
 
+```
+SOTA
+========
+Property Graph Index(Implicit) 
+Normal Parser 
+Reranker(cross-encoder/ms-marco-MiniLM-L-6-v2)
+```
 ### M3DocVQA (Text Only)
 > **30 pdfs & 30 questions(1 question for 1 pdf)**
 
@@ -16,7 +23,7 @@
 - Property Graph Index(Implicit) + Normal Parser + Reranker(cross-encoder/ms-marco-MiniLM-L-6-v2)
     | K | Recall | MRR |
     | --- | --- | --- |
-    | 1 | 0.7879 | 7879 |
+    | 1 | 0.7879 | 0.7879 |
     | 3 | 0.9394 | 0.8586 |
     | 5 | 0.9394 | 0.8586 |
     | 10 | 0.9394 | 0.8586 |
@@ -49,7 +56,7 @@
     | 10 | 0.7753 | 0.6234 |
 
 ### FinanceBench (Text Only)
-> **5 pdfs & 8 questions**
+> **5 pdfs & 8 questions / 30 pdfs & 59 questions**
 
 - Property Graph Index(LLM) + Normal Parser
     | K | Recall | MRR |
@@ -60,6 +67,7 @@
     | 10 | 0.8750 | 0.7000 |
 
 - Property Graph Index(Implicit) + Normal Parser + Reranker(cross-encoder/ms-marco-MiniLM-L-6-v2)
+
     | K | Recall | MRR |
     | --- | --- | --- |
     | 1 | 0.4068 | 0.4068 |
